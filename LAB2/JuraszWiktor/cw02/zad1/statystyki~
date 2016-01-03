@@ -1,0 +1,186 @@
+
+--------------------------
+---------------------
+SYSTEM_BUBBLE: 
+
+NUMBER OF RECORDS: 10000
+RECORD SIZE: 4
+SYSTEM TIME: 102.29s
+USER TIME: 13.57s
+--------------------------
+---------------------
+LIBRARY_BUBBLE: 
+
+NUMBER OF RECORDS: 10000
+RECORD SIZE: 4
+SYSTEM TIME: 43.38s
+USER TIME: 16.41s
+************
+************
+************
+
+--------------------------
+---------------------
+SYSTEM_BUBBLE: 
+
+NUMBER OF RECORDS: 3000
+RECORD SIZE: 4
+SYSTEM TIME: 9.50s
+USER TIME: 1.11s
+--------------------------
+---------------------
+LIBRARY_BUBBLE: 
+
+NUMBER OF RECORDS: 3000
+RECORD SIZE: 4
+SYSTEM TIME: 3.95s
+USER TIME: 1.45s
+************
+************
+************
+--------------------------
+---------------------
+SYSTEM_BUBBLE: 
+
+NUMBER OF RECORDS: 3000
+RECORD SIZE: 512
+SYSTEM TIME: 9.70s
+USER TIME: 1.05s
+--------------------------
+---------------------
+LIBRARY_BUBBLE: 
+
+NUMBER OF RECORDS: 3000
+RECORD SIZE: 512
+SYSTEM TIME: 4.85s
+USER TIME: 1.95s
+************
+************
+************
+
+--------------------------
+---------------------
+SYSTEM_BUBBLE: 
+
+NUMBER OF RECORDS: 10000
+RECORD SIZE: 512
+SYSTEM TIME: 10.767s
+USER TIME: 9.50s
+--------------------------
+---------------------
+LIBRARY_BUBBLE: 
+
+NUMBER OF RECORDS: 10000
+RECORD SIZE: 512
+SYSTEM TIME: 5.597s
+USER TIME: 2.173s
+************
+************
+************
+
+--------------------------
+---------------------
+SYSTEM_BUBBLE: 
+
+NUMBER OF RECORDS: 3000
+RECORD SIZE: 4096
+SYSTEM TIME: 14.89s
+USER TIME: 0.87s
+--------------------------
+---------------------
+LIBRARY_BUBBLE: 
+
+NUMBER OF RECORDS: 3000
+RECORD SIZE: 4096
+SYSTEM TIME: 1.463s
+USER TIME: 2.56s
+************
+************
+************
+
+--------------------------
+---------------------
+SYSTEM_BUBBLE: 
+
+NUMBER OF RECORDS: 10000
+RECORD SIZE: 4096
+SYSTEM TIME: 162.27s
+USER TIME: 10.24s
+--------------------------
+---------------------
+LIBRARY_BUBBLE: 
+
+NUMBER OF RECORDS: 10000
+RECORD SIZE: 4096
+SYSTEM TIME: 163.65s
+USER TIME: 25.89s
+************
+************
+************
+
+--------------------------
+---------------------
+SYSTEM_BUBBLE: 
+
+NUMBER OF RECORDS: 2000
+RECORD SIZE: 8192
+SYSTEM TIME: 10.62s
+USER TIME: 0.46s
+--------------------------
+---------------------
+LIBRARY_BUBBLE: 
+
+NUMBER OF RECORDS: 2000
+RECORD SIZE: 8192
+SYSTEM TIME: 11.04s
+USER TIME: 1.06s
+************
+************
+************
+
+--------------------------
+---------------------
+SYSTEM_BUBBLE: 
+
+NUMBER OF RECORDS: 5000
+RECORD SIZE: 8192
+SYSTEM TIME: 78.62s
+USER TIME: 3.69s
+--------------------------
+---------------------
+LIBRARY_BUBBLE: 
+
+NUMBER OF RECORDS: 5000
+RECORD SIZE: 8192
+SYSTEM TIME: 75.03s
+USER TIME: 7.46s
+************
+************
+************
+
+
+WNIOSKI: 
+1. Jeśli rekordy są małe, to funkcje biblioteczne są znacznie szybsze od systemowych.
+2. Jeśli rekordy są duże, to wydajnośc jest podobna ze wskazaniem na funkcje systemowe
+3. Dla każdego sortowanie USER_TIME << SYSTEM TIME
+4. Wielkość rekodrdów ma znaczenie
+
+--------------------------
+---------------------
+SYSTEM_BUBBLE: 
+
+NUMBER OF RECORDS: 10000
+RECORD SIZE: 512
+SYSTEM TIME: 9036
+USER TIME: 1045
+--------------------------
+---------------------
+LIBRARY_BUBBLE: 
+
+NUMBER OF RECORDS: 10000
+RECORD SIZE: 512
+SYSTEM TIME: 4960
+USER TIME: 2117
+************
+************
+************

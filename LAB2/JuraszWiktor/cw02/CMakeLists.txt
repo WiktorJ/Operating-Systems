@@ -1,0 +1,10 @@
+cmake_minimum_required(VERSION 2.6)
+project(SOLAB2)
+set(CMAKE_C_FLAGS "-o -Wall")
+include_directories(${SOLAB2_SOURCE_DIR})
+
+add_executable(zad1/records_generator zad1/records_generator.c)
+add_executable(zad1/records_sorter zad1/records_sorter.c)
+add_executable(zad2/path_reader zad2/path_reader.c)
+add_executable(zad2/path_reader_ftw zad2/path_reader_ftw.c)
+add_executable(zad3/locker zad3/locker.c)

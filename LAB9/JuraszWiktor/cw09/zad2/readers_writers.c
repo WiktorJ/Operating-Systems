@@ -1,0 +1,133 @@
+#include <semaphore.h>
+#include <stdio.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <string.h>
+#include <fcntl.h>
+#include <time.h>
+#include <sys/time.h>
+#include <math.h>
+
+#define S_KEY 3
+#define SIZE 20
+void print_error(int error, char* message){
+    puts(message);
+    puts(strerror(error));
+}
+
+void print_error_exit(int error, char* message){
+    puts(message);
+    puts(strerror(error));
+    exit(EXIT_FAILURE);
+}
+void * reader_thread(void * arg);
+void * writer_thread(void * arg);
+sem_t binary;
+sem_t free_sem;
+int creator;
+int number_of_readers;
+int number_of_writers;
+key_t semaphore_key;
+char *key_path = ".";
+int resources[SIZE];
+pthread_t *writers;
+pthread_t *readers;
+void atexit_function(){
+    if(sem_destroy(&binary) == -1)
+        print_error(errno, "sem_destroy pmutex error");
+
+    if(sem_destroy(&free_sem) == -1)
+        print_error(errno, "sem_destroy cmutex error");
+}
+
+int main(int argc, char** argv){
+    if(argc != 4)
+        print_error_exit(errno,"usage ./writer <number of readers> <number of writers> <creator flag 0/1>");
+
+    creator = atoi(argv[3]);
+    number_of_readers = atoi(argv[1]);
+    number_of_writers = atoi(argv[2]);
+    int i;
+    atexit(atexit_function);
+    int w_id[number_of_writers];
+    int r_id[number_of_readers];
+    for(i = 0; i < number_of_readers; i++){
+        r_id[i]=i;
+    }
+    for(i = 0; i < number_of_writers; i++){
+        w_id[i]=i;
+    }
+    if(creator) {
+        sem_init(&binary, 0, 1);
+        sem_init(&free_sem, 0,number_of_readers);
+        for(i = 0; i < SIZE; i++){
+            resources[i] = i/2;
+        }
+    }
+    
+    writers = malloc(sizeof(pthread_t) *number_of_writers);
+    readers = malloc(sizeof(pthread_t) *number_of_readers);
+
+    for(i = 0; i < number_of_readers; i++){
+        if(pthread_create(&readers[i], NULL, reader_thread, r_id + i) == -1);
+    }
+    for(i = 0; i < number_of_writers; i++){
+        if(pthread_create(&writers[i], NULL, writer_thread, w_id + i) == -1);
+    }
+    
+    for(i = 0; i < number_of_readers; i++){
+        if(pthread_join(readers[i], NULL) == -1)
+            print_error(errno, "error in pthread_join");
+    }
+    for(i = 0; i < number_of_writers; i++){
+        if(pthread_join(writers[i], NULL) == -1)
+            print_error(errno, "error in pthread_join");
+    }
+    
+}
+void* reader_thread(void* arg){
+    int i = 0;
+    int id = *((int*) arg);
+    srand(time(NULL));
+    while(1){
+        usleep(20000);
+        int r = rand()%10;
+        int counter = 0;
+        for(i = 0; i < SIZE; i++){
+            sem_wait(&free_sem);
+            if(resources[i] == r){
+                usleep(2000);
+                counter++;
+            } 
+            sem_post(&free_sem);
+        } 
+        printf("\nreader %d found %d number %d\n",id, counter, r);
+    }
+
+}
+
+void* writer_thread(void* arg){
+    int i = 0;
+    int id = *((int*) arg);
+    srand(time(NULL));
+    while(1){
+        usleep(20000);
+        int amount = rand()%SIZE;
+        sem_wait(&binary);        
+        for(i = 0; i < number_of_readers; i++)
+            sem_wait(&free_sem);
+        for(i = 0; i < amount; i++){a 
+            int r = rand()%10;
+            int p = rand()%SIZE;
+            resources[p] = r;
+            usleep(20000);
+        }
+        printf("\nwriter %d modified %d positions",id, amount);
+        for(i = 0; i < number_of_readers; i++)
+            sem_post(&free_sem);
+        sem_post(&binary);  
+    }
+}

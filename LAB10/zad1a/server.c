@@ -1,0 +1,277 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <sys/un.h>
+#include <sys/select.h>
+#include <sys/time.h>
+#include <signal.h>
+#include "common.h"
+#include <errno.h>
+
+#define MAX_CLIENTS 100
+#define MAX_INACTIVE 10
+int local_s;
+int internet_s;
+struct sockaddr_un self_local;
+fd_set fds;
+struct clientProfile clients[MAX_CLIENTS];
+
+
+int clients_connected = 0;
+int check_if_registered(char *name);
+int check_if_active(char *name);
+int get_client_number(char *name);
+void disable_users();
+void send_message(struct msg msg1);
+void set_time_stamp(int index);
+void internet_handle(struct msg msg1, struct sockaddr_in other);
+void local_handle(struct msg msg1);
+
+
+void print_error_exit(int error, char* message){
+    puts(message);
+    puts(strerror(error));
+    exit(EXIT_FAILURE);
+}
+
+
+void print_error(int error, char* message){
+    puts(message);
+    puts(strerror(error));
+}
+
+void atexit_function(void) {
+    close(local_s);
+    close(internet_s);
+    (void)unlink(self_local.sun_path);
+}
+
+
+
+
+int main(int argc, char *argv[]) {
+    
+    if (argc != 3) {
+        printf("usage: ./server <port> <address>");
+        exit(EXIT_FAILURE);
+    }
+
+    atexit(atexit_function);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        memset(&clients[i], '0', sizeof(clients[i]));
+        clients[i].last_activity = -1;
+    }
+
+    char buf[MAX_MESSAGE_LENGTH];
+    struct sockaddr_in internet_socket_address, other;
+
+    int len = sizeof(struct sockaddr_in);
+    int n, port;
+
+    if ((local_s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) 
+        print_error(errno, "socket error1");
+
+    port = atoi(argv[1]);
+    memset((char *) &internet_socket_address, 0, sizeof(struct sockaddr_in));
+    internet_socket_address.sin_family = AF_INET;
+    internet_socket_address.sin_port = htons(port);
+    internet_socket_address.sin_addr.s_addr = htonl(INADDR_ANY);*
+    if (bind(local_s, (struct sockaddr *) &internet_socket_address, sizeof(internet_socket_address)) == -1) 
+            print_error(errno, "bind error1");
+
+    if( (internet_s = socket(AF_UNIX, SOCK_DGRAM, 0)) == -1)
+        print_error(errno, "socket error2");
+
+    self_local.sun_family = AF_UNIX;
+    strcpy(self_local.sun_path, argv[2]);
+    if(bind(internet_s, (struct sockaddr *) &self_local, sizeof(struct sockaddr_un)) == -1)
+        print_error(errno, "bind error12");
+
+    FD_ZERO(&fds);
+    FD_SET(local_s, &fds);
+    FD_SET(internet_s, &fds);
+    int maximum = local_s > internet_s ? local_s + 1 : internet_s + 1;
+    struct msg msg1;
+    memset(msg1.buf, '\0', sizeof(msg1.buf));
+    memset(msg1.name, '\0', sizeof(msg1.name));
+    struct timeval tv;
+    
+
+    while (1) {
+        FD_SET(local_s, &fds);
+        FD_SET(internet_s, &fds);     
+        tv.tv_sec = 10;
+        tv.tv_usec = 0;   
+        select(maximum, &fds, NULL, NULL, &tv);//*
+
+        if (FD_ISSET(local_s, &fds)) {
+            int n_int = (int)recvfrom(local_s, (void *) &msg1, sizeof(struct msg), MSG_DONTWAIT, (struct sockaddr *) &other, &len);//*
+            if (n_int < 0 && errno != EAGAIN && errno != EWOULDBLOCK) 
+                print_error(errno, "recvfrom error1");
+            else if (n_int > 0) {
+                internet_handle(msg1, other);
+            }
+        }
+
+        if (FD_ISSET(internet_s, &fds)) {
+            int n_local = (int) recvfrom(internet_s, (void *) &msg1, sizeof(struct msg), MSG_DONTWAIT, NULL, 0);
+            if (n_local < 0 && errno != EAGAIN && errno != EWOULDBLOCK) 
+                 print_error(errno, "recvfrom error2");
+            
+            else if (n_local > 0) {
+                local_handle(msg1);
+            }
+        }
+        FD_ZERO(&fds);
+        disable_users();
+    }
+}
+
+void local_handle(struct msg msg1) {
+    if (check_if_registered(msg1.name) == 0) {
+        printf("Received message form unregistered user, on local socket. Checking if it was registration signal...");
+        if (strncmp(msg1.buf, "#reg", 3) != 0) {
+	    printf("Not registration signal! \n");
+            return;
+        }
+        printf("Signal was correct, registerting user...");
+
+        strcpy(clients[clients_connected].name, msg1.name);
+        clients[clients_connected].active = 1;
+        clients[clients_connected].sock = msg1.sock;
+        clients[clients_connected].type = LOCAL_TYPE;
+        set_time_stamp(clients_connected);
+        clients_connected++;
+	printf("registration done.\n");
+    }
+    else {
+        int index = get_client_number(msg1.name);
+        if (check_if_active(msg1.name)) {
+            if (strncmp(msg1.buf, "#reg", 3) == 0) 
+                set_time_stamp(index);
+            else {            
+                printf("%s\n", msg1.buf);
+                send_message(msg1);
+            }
+        }
+        else {
+            if (strncmp(msg1.buf, "#reg", 3) == 0) {
+                printf("Activating user: %s\n", msg1.name);
+                clients[index].active = 1;
+                set_time_stamp(index);
+            }
+        }
+    }
+}
+
+void internet_handle(struct msg msg1, struct sockaddr_in other) {
+    if (check_if_registered(msg1.name) == 0) {
+        printf("Received message form unregistered user, on internet socket. Checking if it was registration signal...          ");
+        if (strncmp(msg1.buf, "#reg", 3) != 0) {
+	    printf("Not registration signal! \n");
+            return;
+        }
+        printf("Signal was correct, registerting user...          ");
+
+        strcpy(clients[clients_connected].name, msg1.name);
+        clients[clients_connected].active = 1;
+        clients[clients_connected].inter = other;
+        clients[clients_connected].type = INTERNET;
+        set_time_stamp(clients_connected);
+        clients_connected++;
+	printf("registration done.\n");
+    }
+    else {
+        int index = get_client_number(msg1.name);
+        if (check_if_active(msg1.name)) {
+            if (strncmp(msg1.buf, "#reg", 3) == 0) 
+                set_time_stamp(index);
+            else {            
+                printf("%s\n", msg1.buf);
+                send_message(msg1);
+            }
+        }
+        else {
+            if (strncmp(msg1.buf, "#reg", 3) == 0) {
+                printf("Activating user: %s\n", msg1.name);
+                clients[index].active = 1;
+                set_time_stamp(index);
+            }
+        }
+    }
+}
+
+int check_if_registered(char *name) {
+    for (int i = 0; i < clients_connected; i++) {
+        if (strncmp(clients[i].name, name, strlen(name)) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int check_if_active(char *name) {
+    for (int i = 0; i < clients_connected; i++) {
+        if (strcmp(clients[i].name, name) == 0) {
+            if (clients[i].active == 1) {
+                return 1;
+                break;
+            }
+        }
+    }
+    return 0;
+}
+
+int get_client_number(char *name) {
+    for (int i = 0; i < clients_connected; i++) {
+        if (strcmp(clients[i].name, name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void send_message(struct msg msg1) {
+    printf("Sending\n");
+    int rc;
+    for (int i = 0; i < clients_connected; i++) {
+        if (clients[i].active == 0) {
+            continue;
+        }
+        if (clients[i].type == INTERNET) {
+            if( (rc = (int) sendto(local_s, (void *) &msg1, sizeof(struct msg), 0, (struct sockaddr *) &clients[i].inter, sizeof(struct sockaddr_in))) == -1)//*
+                print_error(errno, "sendto error1");
+        }
+        else { 
+            struct sockaddr_un temp;
+            temp.sun_family = AF_UNIX;
+            strcpy(temp.sun_path, clients[i].name);
+            if( (rc = (int) sendto(clients[i].sock, (void *) &msg1, sizeof(struct msg), 0, (struct sockaddr *) &temp, sizeof(struct sockaddr_un))) == -1)
+                print_error(errno, "sendto error2");
+        }
+    }
+}
+
+void set_time_stamp(int index) {
+    struct timeval tv;
+    if (gettimeofday(&tv, NULL) == -1) 
+        print_error(errno, "gettimeofday error1");
+    clients[index].last_activity = tv.tv_sec;
+}
+
+void disable_users() {
+    struct timeval tv;
+    if (gettimeofday(&tv, NULL) == -1) 
+        print_error(errno, "gettimeofday error2");
+    long current_sec = tv.tv_sec;
+    for (int i = 0; i < clients_connected; i++) {
+        if (current_sec - clients[i].last_activity > MAX_INACTIVE) {
+            clients[i].active = 0;
+        }
+    }
+}
